@@ -100,6 +100,15 @@ wrangler pages dev web/dist
 - **回滚版本**：在 Pages 项目里选中历史部署并点击 “Rollback”
 - **环境变量**：编辑 `wrangler.toml` 的 `[vars]` 段或在 Cloudflare 控制台设置，将在前端运行时注入（如 API endpoint）
 
+### 常见部署/加载问题
+
+| 问题 | 处理 |
+|------|------|
+| `wrangler pages deploy` 提示 “Need to specify how to reconcile divergent branches” 或 “Configuration file cannot contain both main and pages_build_output_dir” | 使用 `npm run deploy:cf`（已固定 `--branch=production`），并保持 `wrangler.toml` 仅包含 Pages 所需字段（`name`、`pages_build_output_dir`、`build_command`、`[vars]` 等）。 |
+| 浏览器加载中文模型时卡住 | 未量化模型约 390 MB。请运行 `./training/deploy_to_web.sh --quantization-bytes 2`（float16）后重新构建；网页也会显示 Loading Overlay，请耐心等待。 |
+| 推理时报 `Unknown op 'Erfc'` | 需要浏览器端 `@tensorflow/tfjs` ≥ 4.18 且使用 `webgl` backend，前端已在 `BertClassifier` 中注册自定义 `Erfc` 算子。如仍报错，清除缓存并确认 `tf.version_core` 与 `tf.getBackend()`。 |
+| `deploy_to_web.sh` 转换失败，报 NumPy 2.x | 脚本已改用当前虚拟环境的 `python -m pip`。请确保在激活 env 后运行，并保持 `numpy<2`（建议 1.26.4）。详见 `training/README.md`。 |
+
 ## 许可证
 
 本项目采用 Apache License 2.0 许可证。

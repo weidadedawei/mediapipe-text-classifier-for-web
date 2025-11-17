@@ -53,6 +53,8 @@ cd training
 conda activate bert_gpu_env   # 或根据脚本输出选择 env
 ```
 
+> ⚠️ `deploy_to_web.sh` 会复用**当前** shell 的 `python -m pip` / `python -m tensorflowjs.converters.converter`。请务必先 `conda activate bert_gpu_env`（或 `.venv`），再运行脚本；可用 `which python` 确认路径确实指向虚拟环境，避免意外调用系统 Python（可能带有 NumPy 2.x）。
+
 ### 安装验证
 
 ```bash
@@ -220,17 +222,17 @@ conda activate bert_gpu_env
 
 #### 可选：量化/压缩输出
 
-浏览器需要顺序下载约 **390 MB** 的中文模型（98 个 `.bin` 分片）。为减少加载耗时，可在转换阶段开启 `quantization_bytes`：
+浏览器需要顺序下载约 **390 MB** 的中文模型（98 个 `.bin` 分片）。为减少加载耗时，可在转换阶段开启量化：
 
-```bash
-# float16（推荐，几乎无感知精度损失）
-./deploy_to_web.sh --quantization-bytes 2
+| 命令 | 等效 TFJS 选项 | 说明 |
+|------|----------------|------|
+| `./deploy_to_web.sh --quantization-bytes 2` | `--quantize_float16` | 推荐，体积约降一半，精度基本不受影响 |
+| `./deploy_to_web.sh --quantization-bytes 1` | `--quantize_uint8` | 体积最小，但建议重新验证精度 |
+| `./deploy_to_web.sh --quantization-bytes 4` | `--quantize_uint16` | 介于 float16 与 int8 之间 |
 
-# int8（体积最小，但需验证精度）
-./deploy_to_web.sh --quantization-bytes 1
-```
+脚本在调用 `tensorflowjs_converter` 时会自动追加 `--skip_op_check`，以兼容 BERT 图中使用的 `Erfc`（GELU）。同时支持 `--skip-build`（仅复制模型，不运行 `npm run build`）。
 
-`tensorflowjs_converter` 会自动将权重压缩为 16-bit 或 8-bit，常见节省比例 40%~70%。脚本会在控制台提示具体配置，也支持 `--skip-build`（仅复制模型，跳过 `npm run build`）。
+> 若仍报 “A module that was compiled using NumPy 1.x cannot be run in NumPy 2.x”，说明脚本实际调用了系统 Python。请重新激活虚拟环境并确认 `python --version && which python` 输出正确；必要时 `python -m pip install "numpy==1.26.4"`。
 
 ### 方法二：手动控制
 

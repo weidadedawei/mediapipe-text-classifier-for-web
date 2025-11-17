@@ -2,6 +2,8 @@
 node_modules/
 /web/dist/
 .parcel-cache/
+web/src/models/
+/web/src/models/
 
 ### Python / 训练输出
 __pycache__/
@@ -29,4 +31,5 @@ training/*.tflite
 *.cache
 .ipynb_checkpoints/
 training/datasets/*.tmp
+
 

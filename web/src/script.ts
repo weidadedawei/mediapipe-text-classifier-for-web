@@ -162,6 +162,7 @@ let bertClassifier: BertClassifier | null = null;
 let currentModelRuntime: 'mediapipe' | 'tensorflow' | null = null;
 let currentModelKey: ModelKey = getInitialModelType();
 let isModelLoading = false;
+// 缓存不同类型的模型，避免重复下载与初始化
 const modelCache: Partial<Record<ModelKey, { runtime: 'mediapipe' | 'tensorflow'; classifier: TextClassifier | BertClassifier }>> = {};
 
 // Initialize elements and event listeners when DOM is ready
@@ -213,58 +214,15 @@ function initializeApp() {
     input.addEventListener('keydown', (event) => {
       if (event.key === 'Enter') {
         event.preventDefault();
-        submit?.click();
+        void runClassification();
       }
     });
   }
 
   // Add a button click listener that classifies text on click
   if (submit) {
-    submit.addEventListener("click", async () => {
-      const copy = UI_COPY[currentModelKey];
-      
-      if (isModelLoading) {
-        showInfoBanner(copy.loadingMessage, 'info');
-        return;
-      }
-      
-      if (!input || input.value === "") {
-        alert(currentModelKey === 'chinese_tfjs'
-          ? "请输入一些文本，或点击“填充示例文本”按钮添加文本"
-          : "Please enter some text or insert the sample paragraph.");
-        return;
-      }
-
-      if (output) {
-        showInfoBanner(copy.analyzingMessage, 'info');
-      }
-
-      await sleep(5);
-      
-      try {
-        if (currentModelRuntime === 'tensorflow' && bertClassifier) {
-          // 使用 TensorFlow.js 模型
-          const results = await bertClassifier.classify(input.value);
-          displayTensorFlowResults(results);
-        } else if (currentModelRuntime === 'mediapipe' && textClassifier) {
-          // 使用 MediaPipe 模型
-          const result = textClassifier.classify(input.value);
-          displayClassificationResult(result);
-        } else {
-          const fallbackMessage = currentModelKey === 'chinese_tfjs'
-            ? "模型未加载，请稍候或尝试重新切换模型。"
-            : "Model is not ready yet. Please wait or switch the model again.";
-          showInfoBanner(fallbackMessage, 'warning');
-        }
-      } catch (error) {
-        console.error('分类失败:', error);
-        if (output) {
-          const errorMessage = currentModelKey === 'chinese_tfjs'
-            ? `分类失败: ${error}`
-            : `Classification failed: ${error}`;
-          output.innerText = errorMessage;
-        }
-      }
+    submit.addEventListener("click", () => {
+      void runClassification();
     });
   }
 
@@ -288,7 +246,7 @@ function initializeApp() {
   createTextClassifier(initialModel);
 }
 
-// Create the TextClassifier object upon page load
+// 根据当前配置加载/缓存对应的模型实例
 const createTextClassifier = async (modelKey?: ModelKey) => {
   if (isModelLoading) {
     return;
@@ -337,10 +295,7 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
   
   try {
     const modelConfig = getCurrentModelConfig();
-    
-    console.log(`使用模型: ${modelConfig.displayName}`);
-    console.log(`模型路径: ${modelConfig.modelPath}`);
-    
+
     // 根据模型类型选择加载方式
     const modelType = modelConfig.modelType || 'mediapipe';
     currentModelRuntime = modelType;
@@ -369,8 +324,6 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
         runtime: 'tensorflow',
         classifier: bertClassifier
       };
-      
-      console.log('✅ TensorFlow.js 模型加载完成');
     } else {
       // 使用 MediaPipe 模型（默认）
       const text = await FilesetResolver.forTextTasks(
@@ -387,8 +340,6 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
         runtime: 'mediapipe',
         classifier: textClassifier
       };
-      
-      console.log('✅ MediaPipe 模型加载完成');
     }
 
     // Show demo section now model is ready to use.
@@ -408,6 +359,61 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
   }
 };
 
+/**
+ * 统一处理触发分类的流程（按钮点击或回车键都会调用）
+ */
+async function runClassification(): Promise<void> {
+  const copy = UI_COPY[currentModelKey];
+  
+  if (isModelLoading) {
+    showInfoBanner(copy.loadingMessage, 'info');
+    return;
+  }
+
+  if (!input) {
+    return;
+  }
+  
+  const textValue = input.value;
+  if (textValue.trim() === "") {
+    alert(currentModelKey === 'chinese_tfjs'
+      ? "请输入一些文本，或点击“填充示例文本”按钮添加文本"
+      : "Please enter some text or insert the sample paragraph.");
+    return;
+  }
+  
+  if (output) {
+    showInfoBanner(copy.analyzingMessage, 'info');
+  }
+  
+  try {
+    if (currentModelRuntime === 'tensorflow' && bertClassifier) {
+      const results = await bertClassifier.classify(textValue);
+      displayTensorFlowResults(results);
+      return;
+    }
+    
+    if (currentModelRuntime === 'mediapipe' && textClassifier) {
+      const result = textClassifier.classify(textValue);
+      displayClassificationResult(result);
+      return;
+    }
+    
+    const fallbackMessage = currentModelKey === 'chinese_tfjs'
+      ? "模型未加载，请稍候或尝试重新切换模型。"
+      : "Model is not ready yet. Please wait or switch the model again.";
+    showInfoBanner(fallbackMessage, 'warning');
+  } catch (error) {
+    console.error('分类失败:', error);
+    if (output) {
+      const errorMessage = currentModelKey === 'chinese_tfjs'
+        ? `分类失败: ${error}`
+        : `Classification failed: ${error}`;
+      output.innerText = errorMessage;
+    }
+  }
+}
+
 // Initialize when DOM is ready
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initializeApp);
@@ -415,11 +421,7 @@ if (document.readyState === "loading") {
   initializeApp();
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-// Iterate through the sentiment categories in the TextClassifierResult object, then display them in #output
+// 渲染 MediaPipe TextClassifier 返回的分类结果
 function displayClassificationResult(result: TextClassifierResult) {
   if (!output) return;
   
@@ -459,7 +461,7 @@ function displayClassificationResult(result: TextClassifierResult) {
   }
 }
 
-// Display TensorFlow.js classification results
+// 渲染 TensorFlow.js 自定义 BERT 模型的结果
 function displayTensorFlowResults(results: Array<{label: string, score: number}>) {
   if (!output) return;
   
@@ -482,25 +484,6 @@ function displayTensorFlowResults(results: Array<{label: string, score: number}>
       categoryDiv.style.fontWeight = "bold";
     }
     output.appendChild(categoryDiv);
-  }
-}
-
-async function disposeCurrentModels(): Promise<void> {
-  if (textClassifier) {
-    try {
-      if ('close' in textClassifier && typeof (textClassifier as any).close === 'function') {
-        await (textClassifier as any).close();
-      }
-    } catch (error) {
-      console.warn('关闭 MediaPipe 模型失败：', error);
-    } finally {
-      textClassifier = null;
-    }
-  }
-  
-  if (bertClassifier) {
-    bertClassifier.dispose();
-    bertClassifier = null;
   }
 }
 
