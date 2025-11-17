@@ -38,7 +38,7 @@ export const MODEL_CONFIGS: Record<string, ModelConfig> = {
     displayName: '中文情感分析模型 (TensorFlow.js)',
     description: '基于 BERT-Base-Chinese 微调的 TensorFlow.js 模型，适合中文情感分析与教学演示。',
     language: '中文',
-    usageHint: '建议输入简体中文文本，模型将返回「积极 / 消极 / 中性」的置信度。',
+    usageHint: '建议输入简体中文文本，模型将返回「积极 / 消极」的置信度。',
     modelType: 'tensorflow'
   }
 };

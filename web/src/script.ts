@@ -40,13 +40,10 @@ interface TextClassifierResult {
 const labelTranslations: Record<string, string> = {
   'negative': '负面情绪',
   'positive': '正面情绪',
-  'neutral': '中性',
   'Negative': '负面情绪',
   'Positive': '正面情绪',
-  'Neutral': '中性',
   'NEGATIVE': '负面情绪',
-  'POSITIVE': '正面情绪',
-  'NEUTRAL': '中性'
+  'POSITIVE': '正面情绪'
 };
 
 // 获取中文标签
@@ -74,6 +71,7 @@ interface ModelUICopy {
   analyzingMessage: string;
   sampleText: string;
   mismatchWarning?: string;
+  overlayHint?: string;
 }
 
 const CHINESE_SAMPLE = `今天天气真好，阳光明媚，微风习习。
@@ -105,7 +103,8 @@ const UI_COPY: Record<ModelKey, ModelUICopy> = {
     loadingMessage: '正在加载中文 TensorFlow.js 模型，请稍候…',
     readyMessage: '✅ 中文模型已准备就绪，可直接输入中文句子进行分析。',
     analyzingMessage: '正在分类...',
-    sampleText: CHINESE_SAMPLE
+    sampleText: CHINESE_SAMPLE,
+    overlayHint: '模型约 390 MB，请在稳定网络环境下等待加载完成。'
   },
   english: {
     documentTitle: 'Sentiment Classifier Playground',
@@ -126,7 +125,8 @@ const UI_COPY: Record<ModelKey, ModelUICopy> = {
     readyMessage: '✅ English model ready. Enter English sentences for the most accurate predictions.',
     analyzingMessage: 'Classifying...',
     sampleText: ENGLISH_SAMPLE,
-    mismatchWarning: '⚠️ This model is optimized for English. Results for Chinese characters may be inaccurate.'
+    mismatchWarning: '⚠️ This model is optimized for English. Results for Chinese characters may be inaccurate.',
+    overlayHint: 'MediaPipe English model体积较小，一般几秒即可完成。'
   }
 };
 
@@ -150,6 +150,9 @@ let modelLanguage: HTMLElement | null;
 let modelName: HTMLElement | null;
 let modelDescription: HTMLElement | null;
 let modelHint: HTMLElement | null;
+let loadingOverlay: HTMLElement | null;
+let loadingOverlayText: HTMLElement | null;
+let loadingOverlayHint: HTMLElement | null;
 let modelSectionTitle: HTMLElement | null;
 let modelSectionSubtitle: HTMLElement | null;
 let modelSwitcher: HTMLElement | null;
@@ -159,6 +162,7 @@ let bertClassifier: BertClassifier | null = null;
 let currentModelRuntime: 'mediapipe' | 'tensorflow' | null = null;
 let currentModelKey: ModelKey = getInitialModelType();
 let isModelLoading = false;
+const modelCache: Partial<Record<ModelKey, { runtime: 'mediapipe' | 'tensorflow'; classifier: TextClassifier | BertClassifier }>> = {};
 
 // Initialize elements and event listeners when DOM is ready
 function initializeApp() {
@@ -181,6 +185,9 @@ function initializeApp() {
   modelName = document.getElementById("model-name");
   modelDescription = document.getElementById("model-description");
   modelHint = document.getElementById("model-hint");
+  loadingOverlay = document.getElementById("loading-overlay");
+  loadingOverlayText = document.getElementById("loading-overlay-text");
+  loadingOverlayHint = loadingOverlay?.querySelector("small") ?? null;
   modelSectionTitle = document.getElementById("model-section-title");
   modelSectionSubtitle = document.getElementById("model-section-subtitle");
   modelSwitcher = document.getElementById("model-switcher");
@@ -197,6 +204,16 @@ function initializeApp() {
       if (input) {
         const copy = UI_COPY[currentModelKey];
         input.value = copy.sampleText;
+      }
+    });
+  }
+  
+  // 允许使用回车键触发分类
+  if (input) {
+    input.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        submit?.click();
       }
     });
   }
@@ -293,18 +310,32 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
     output.innerHTML = "";
   }
   
-  if (output) {
-    showInfoBanner(copy.loadingMessage, 'info');
+  setModelType(targetKey);
+  currentModelKey = targetKey;
+  
+  const cachedModel = modelCache[targetKey];
+  if (cachedModel) {
+    currentModelRuntime = cachedModel.runtime;
+    if (cachedModel.runtime === 'tensorflow') {
+      bertClassifier = cachedModel.classifier as BertClassifier;
+      textClassifier = null;
+    } else {
+      textClassifier = cachedModel.classifier as TextClassifier;
+      bertClassifier = null;
+    }
+    
+    if (demosSection) {
+      demosSection.classList.remove("invisible");
+    }
+    showInfoBanner(copy.readyMessage, 'success');
+    hideLoadingOverlay();
+    return;
   }
   
+  showLoadingOverlay(copy.loadingMessage, copy.overlayHint);
   isModelLoading = true;
   
   try {
-    await disposeCurrentModels();
-    
-    setModelType(targetKey);
-    currentModelKey = targetKey;
-    
     const modelConfig = getCurrentModelConfig();
     
     console.log(`使用模型: ${modelConfig.displayName}`);
@@ -334,6 +365,11 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
       
       await bertClassifier.initialize();
       
+      modelCache[targetKey] = {
+        runtime: 'tensorflow',
+        classifier: bertClassifier
+      };
+      
       console.log('✅ TensorFlow.js 模型加载完成');
     } else {
       // 使用 MediaPipe 模型（默认）
@@ -346,6 +382,11 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
         },
         maxResults: 5
       });
+      
+      modelCache[targetKey] = {
+        runtime: 'mediapipe',
+        classifier: textClassifier
+      };
       
       console.log('✅ MediaPipe 模型加载完成');
     }
@@ -363,6 +404,7 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
     }
   } finally {
     isModelLoading = false;
+    hideLoadingOverlay();
   }
 };
 
@@ -502,6 +544,10 @@ function updateUICopy(modelKey: ModelKey): void {
   populateTextLabel && (populateTextLabel.innerText = copy.fillSample);
   submitLabel && (submitLabel.innerText = copy.analyzeButton);
   
+  if (loadingOverlayHint) {
+    loadingOverlayHint.innerText = copy.overlayHint || '';
+  }
+  
   if (modelSwitcher) {
     const chineseButtonLabel = modelSwitcher.querySelector<HTMLSpanElement>('button[data-model-key="chinese_tfjs"] .model-name');
     const englishButtonLabel = modelSwitcher.querySelector<HTMLSpanElement>('button[data-model-key="english"] .model-name');
@@ -515,3 +561,18 @@ function showInfoBanner(message: string, variant: 'info' | 'success' | 'warning'
   output.innerHTML = `<div class="info-banner ${variant}">${message}</div>`;
 }
 
+function showLoadingOverlay(message?: string, hint?: string): void {
+  if (!loadingOverlay) return;
+  loadingOverlay.classList.add('is-visible');
+  if (loadingOverlayText && message) {
+    loadingOverlayText.innerText = message;
+  }
+  if (loadingOverlayHint && hint) {
+    loadingOverlayHint.innerText = hint;
+  }
+}
+
+function hideLoadingOverlay(): void {
+  if (!loadingOverlay) return;
+  loadingOverlay.classList.remove('is-visible');
+}

@@ -8,6 +8,32 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 WEB_DIR="$PROJECT_ROOT/web"
 MODEL_DIR="$SCRIPT_DIR/models"
 SRC_MODEL_DIR="$WEB_DIR/src/models"
+QUANTIZATION_BYTES=""
+SKIP_BUILD="false"
+PYTHON_BIN="$(which python)"
+PIP_CMD="$PYTHON_BIN -m pip"
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --quantization-bytes)
+            QUANTIZATION_BYTES="$2"
+            shift 2
+            ;;
+        --quantization-bytes=*)
+            QUANTIZATION_BYTES="${1#*=}"
+            shift
+            ;;
+        --skip-build)
+            SKIP_BUILD="true"
+            shift
+            ;;
+        *)
+            echo "未知参数: $1"
+            echo "用法: ./deploy_to_web.sh [--quantization-bytes 1|2|4] [--skip-build]"
+            exit 1
+            ;;
+    esac
+done
 
 echo "========================================="
 echo "部署中文 BERT 模型到 Web 应用"
@@ -37,9 +63,9 @@ echo ""
 
 # 检查 tensorflowjs
 echo "📦 检查 tensorflowjs..."
-if ! python3 -c "import tensorflowjs" 2>/dev/null; then
+if ! "$PYTHON_BIN" -c "import tensorflowjs" 2>/dev/null; then
     echo "   正在安装 tensorflowjs..."
-    pip install tensorflowjs --quiet
+    $PIP_CMD install tensorflowjs --quiet
     echo "   ✅ tensorflowjs 安装完成"
 else
     echo "   ✅ tensorflowjs 已安装"
@@ -56,9 +82,37 @@ fi
 echo "🔄 转换 SavedModel 为 TensorFlow.js 格式..."
 echo "   （这可能需要几分钟）"
 
-tensorflowjs_converter \
-    --input_format=tf_saved_model \
-    --output_format=tfjs_graph_model \
+CONVERTER_FLAGS=(
+    "--input_format=tf_saved_model"
+    "--output_format=tfjs_graph_model"
+    "--skip_op_check"
+)
+
+case "$QUANTIZATION_BYTES" in
+    1)
+        echo "   ➕ 启用 int8 量化 (--quantize_uint8)"
+        CONVERTER_FLAGS+=("--quantize_uint8")
+        ;;
+    2)
+        echo "   ➕ 启用 float16 量化 (--quantize_float16)"
+        CONVERTER_FLAGS+=("--quantize_float16")
+        ;;
+    4)
+        echo "   ➕ 启用 uint16 量化 (--quantize_uint16)"
+        CONVERTER_FLAGS+=("--quantize_uint16")
+        ;;
+    "")
+        echo "   ℹ️ 默认全精度；如需减小体积，可指定 --quantization-bytes 2（float16）或 1（int8）"
+        ;;
+    *)
+        echo "   ⚠️ 不支持的 quantization-bytes=$QUANTIZATION_BYTES，将采用默认配置"
+        ;;
+esac
+
+# Use `--` so argparse stops reading flags (e.g. --quantize_float16) and treats the paths as positional args.
+"$PYTHON_BIN" -m tensorflowjs.converters.converter \
+    "${CONVERTER_FLAGS[@]}" \
+    -- \
     "$SAVED_MODEL_PATH" \
     "$TFJS_OUTPUT_DIR"
 
@@ -93,7 +147,11 @@ if [ ! -d "node_modules" ]; then
     echo "   📦 检测到缺少依赖，正在安装 npm 依赖..."
     npm install
 fi
+if [ "$SKIP_BUILD" = "false" ]; then
 npm run build
+else
+    echo "   ⏭️  跳过 npm run build（收到 --skip-build 参数）"
+fi
 
 echo ""
 echo "========================================="
@@ -111,4 +169,3 @@ echo "下一步:"
 echo "  1. 启动服务器: (cd web && npm run serve)"
 echo "  2. 访问: http://localhost:8000/?model=chinese_tfjs"
 echo ""
-

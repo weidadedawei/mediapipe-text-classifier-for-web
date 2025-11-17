@@ -10,7 +10,7 @@
     "watch": "tsc --watch",
     "dev": "npm run build && npm run serve",
     "serve": "npx http-server dist -p 8000 -o",
-    "deploy:cf": "wrangler pages deploy ./dist --project-name=mediapipe-text-classifier-for-web"
+    "deploy:cf": "wrangler pages deploy ./dist --project-name=mediapipe-text-classifier-for-web --branch=production --commit-dirty=true"
   },
   "devDependencies": {
     "typescript": "^5.3.0",

@@ -6,6 +6,43 @@
 // 使用 CDN 导入 TensorFlow.js
 declare const tf: any;
 
+// 标记自定义算子是否已经注册
+let erfcOpRegistered = false;
+
+function ensureCustomErfcOpRegistered(): void {
+  if (erfcOpRegistered) {
+    return;
+  }
+  if (typeof tf === 'undefined' || typeof tf.registerOp !== 'function') {
+    console.warn('TensorFlow.js registerOp 不可用，无法注册 Erfc 自定义算子');
+    return;
+  }
+  
+  try {
+    tf.registerOp('Erfc', (node: { inputs?: any[] }) => {
+      if (!node?.inputs || node.inputs.length === 0) {
+        throw new Error('Erfc 自定义算子需要一个输入张量');
+      }
+      const inputTensor = node.inputs[0];
+      
+      return tf.tidy(() => {
+        if (typeof tf.erfc === 'function') {
+          return tf.erfc(inputTensor);
+        }
+        if (typeof tf.erf !== 'function') {
+          throw new Error('当前 TensorFlow.js 版本缺少 erf 运算，无法模拟 Erfc');
+        }
+        const ones = tf.onesLike(inputTensor);
+        return tf.sub(ones, tf.erf(inputTensor));
+      });
+    });
+    erfcOpRegistered = true;
+    console.log('🔧 已注册自定义 TensorFlow.js 算子: Erfc');
+  } catch (error) {
+    console.warn('注册 Erfc 自定义算子失败:', error);
+  }
+}
+
 interface ClassificationResult {
   label: string;
   score: number;
@@ -109,6 +146,8 @@ export class BertClassifier {
       if (typeof tf === 'undefined') {
         throw new Error('TensorFlow.js 未加载，请确保已引入 @tensorflow/tfjs');
       }
+      
+      ensureCustomErfcOpRegistered();
 
       // 方法 1: 尝试加载 TensorFlow.js 格式的模型（推荐）
       // modelPath 应该直接指向 model.json 文件
@@ -292,4 +331,3 @@ export class BertClassifier {
     this.initialized = false;
   }
 }
-

@@ -89,12 +89,16 @@ def prepare_data(df, tokenizer, label_to_id, max_length=128):
     return dataset
 
 
-def build_model(num_labels, model_name='bert-base-chinese'):
+def build_model(num_labels, model_name='uer/roberta-small-wwm-chinese-cluecorpussmall'):
     """构建 BERT 分类模型"""
     print(f"\n⚙️  构建模型: {model_name}")
     
     # 加载预训练的 BERT 模型
-    config = BertConfig.from_pretrained(model_name, num_labels=num_labels)
+    config = BertConfig.from_pretrained(
+        model_name,
+        num_labels=num_labels,
+        hidden_act="gelu"  # 强制使用兼容的 GELU 版本
+    )
     model = TFBertForSequenceClassification.from_pretrained(
         model_name,
         config=config

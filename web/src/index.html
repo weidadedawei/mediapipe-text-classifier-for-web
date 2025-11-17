@@ -20,8 +20,8 @@ limitations under the License. -->
   <title>MediaPipe 文本分类器</title>
   <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
   <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-  <!-- TensorFlow.js -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <!-- TensorFlow.js（默认已包含 CPU / WebGL 后端，无需额外引入 tfjs-backend-* 脚本） -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
   <style>
     :root {
       font-family: "Inter", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -235,6 +235,53 @@ limitations under the License. -->
       color: #9a3412;
     }
 
+    .loading-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease;
+    }
+
+    .loading-overlay.is-visible {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .loading-card {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 28px 32px;
+      border-radius: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      width: min(320px, 80vw);
+      text-align: center;
+      box-shadow: 0 20px 45px rgba(15, 23, 42, 0.45);
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: 4px solid rgba(248, 250, 252, 0.2);
+      border-top-color: #38bdf8;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
     .invisible {
       opacity: 0;
       pointer-events: none;
@@ -316,6 +363,13 @@ limitations under the License. -->
       <div id="output" class="result-panel"></div>
 </section>
   </main>
+  <div id="loading-overlay" class="loading-overlay">
+    <div class="loading-card">
+      <div class="loading-spinner" aria-hidden="true"></div>
+      <p id="loading-overlay-text">模型加载中，请稍候…</p>
+      <small style="color:#94a3b8;">大约需要 20~40 秒，取决于网络速度</small>
+    </div>
+  </div>
 <script type="module" src="./script.js"></script>
 </body>
 </html>

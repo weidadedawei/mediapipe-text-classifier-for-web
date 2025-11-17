@@ -218,6 +218,20 @@ conda activate bert_gpu_env
 
 脚本流程：检测 SavedModel → 转成 TensorFlow.js → 复制到 `web/src/models/` → 触发 `npm run build`。
 
+#### 可选：量化/压缩输出
+
+浏览器需要顺序下载约 **390 MB** 的中文模型（98 个 `.bin` 分片）。为减少加载耗时，可在转换阶段开启 `quantization_bytes`：
+
+```bash
+# float16（推荐，几乎无感知精度损失）
+./deploy_to_web.sh --quantization-bytes 2
+
+# int8（体积最小，但需验证精度）
+./deploy_to_web.sh --quantization-bytes 1
+```
+
+`tensorflowjs_converter` 会自动将权重压缩为 16-bit 或 8-bit，常见节省比例 40%~70%。脚本会在控制台提示具体配置，也支持 `--skip-build`（仅复制模型，跳过 `npm run build`）。
+
 ### 方法二：手动控制
 
 1. **转换为 TensorFlow.js**

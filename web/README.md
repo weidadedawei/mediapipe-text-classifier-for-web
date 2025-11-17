@@ -113,3 +113,9 @@ Cloudflare Pages 可免费托管静态站点，推理在浏览器端执行，不
 
 > 参考：[Cloudflare Workers & Pages 官方文档](https://developers.cloudflare.com/workers/)
 
+## 模型加载体验
+
+- 页面在模型初始化期间会显示全屏动画及提示，防止用户误以为卡死。
+- 未量化的中文 TensorFlow.js 模型约 **390 MB**。若希望缩短加载时间，可在 `training/deploy_to_web.sh` 中开启 `--quantization-bytes 2`（float16）或 `--quantization-bytes 1`（int8），然后重新构建 / 部署。
+- 词表与标签文件仅在首次加载时下载，浏览器会自动缓存，可配合 Cloudflare Pages / CDN 进一步加速。
+
