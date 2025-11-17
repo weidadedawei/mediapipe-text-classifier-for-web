@@ -1,0 +1,321 @@
+<!-- Copyright 2023 The MediaPipe Authors.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License. -->
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediaPipe 文本分类器</title>
+  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
+  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
+  <!-- TensorFlow.js -->
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.15.0/dist/tf.min.js"></script>
+  <style>
+    :root {
+      font-family: "Inter", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      color: #1f2933;
+      background: #f4f6fb;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      background: #f4f6fb;
+    }
+
+    .app {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 15px 45px rgba(20, 30, 70, 0.08);
+    }
+
+    .hero {
+      text-align: left;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      letter-spacing: 0.02em;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: #eef2ff;
+      color: #4c1d95;
+      font-weight: 600;
+      margin: 0 0 12px 0;
+    }
+
+    .hero h1 {
+      margin: 0 0 10px 0;
+      font-size: clamp(28px, 4vw, 36px);
+      color: #111827;
+    }
+
+    .hero p {
+      margin: 0;
+      color: #4b5563;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    .model-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .model-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+    }
+
+    .section-title {
+      margin: 0 0 4px 0;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .section-subtitle {
+      margin: 0;
+      color: #6b7280;
+      font-size: 14px;
+    }
+
+    .model-switcher {
+      display: flex;
+      gap: 12px;
+    }
+
+    .model-toggle {
+      border: 1px solid #e5e7eb;
+      background: #fff;
+      border-radius: 12px;
+      padding: 12px 18px;
+      min-width: 140px;
+      text-align: left;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .model-toggle .model-name {
+      display: block;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .model-toggle .model-runtime {
+      display: block;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    .model-toggle.is-active {
+      border-color: #2563eb;
+      background: #eff6ff;
+      box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.2);
+    }
+
+    .model-info {
+      border: 1px dashed #e5e7eb;
+      border-radius: 16px;
+      padding: 18px;
+      background: #f9fafb;
+    }
+
+    .model-language {
+      margin: 0;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.1em;
+      color: #6366f1;
+      font-weight: 600;
+    }
+
+    .model-info h3 {
+      margin: 8px 0;
+      font-size: 20px;
+      color: #0f172a;
+    }
+
+    .model-info p {
+      margin: 6px 0;
+      color: #4b5563;
+      line-height: 1.6;
+    }
+
+    .model-hint {
+      font-size: 14px;
+      color: #059669;
+      background: #ecfdf5;
+      padding: 10px 14px;
+      border-radius: 12px;
+    }
+
+    #demos {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .input-area {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .input-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .field-label {
+      margin: 0;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .result-panel {
+      min-height: 80px;
+      padding: 14px;
+      border-radius: 12px;
+      background: #f9fafb;
+      border: 1px dashed #d1d5db;
+    }
+    
+    .info-banner {
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    
+    .info-banner.info {
+      background: #e0f2fe;
+      color: #0c4a6e;
+    }
+    
+    .info-banner.success {
+      background: #ecfdf5;
+      color: #065f46;
+    }
+    
+    .info-banner.warning {
+      background: #fff7ed;
+      color: #9a3412;
+    }
+
+    .invisible {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 16px;
+      }
+
+      .model-switcher {
+        width: 100%;
+        flex-direction: column;
+      }
+
+      .model-toggle {
+        width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="hero card">
+      <p class="hero-badge" id="hero-badge">Sentiment AI Playground</p>
+      <h1 id="hero-title">中文情感分析演示</h1>
+      <p id="hero-subtitle">完全在浏览器中运行的 BERT 模型，可离线体验中文情感分类。</p>
+    </header>
+
+    <section class="card model-panel">
+      <div class="model-actions">
+        <div>
+          <p class="section-title" id="model-section-title">模型选择</p>
+          <p class="section-subtitle" id="model-section-subtitle">点击下方按钮即可在中文 TensorFlow.js 模型与英文 MediaPipe 模型之间切换。</p>
+        </div>
+        <div class="model-switcher" id="model-switcher">
+          <button class="model-toggle is-active" data-model-key="chinese_tfjs" aria-pressed="true">
+            <span class="model-name" data-model-label="chinese">中文模型</span>
+            <span class="model-runtime">TensorFlow.js</span>
+          </button>
+          <button class="model-toggle" data-model-key="english" aria-pressed="false">
+            <span class="model-name" data-model-label="english">English Model</span>
+            <span class="model-runtime">MediaPipe</span>
+          </button>
+        </div>
+      </div>
+     
+    </section>
+
+    <section id="demos" class="card invisible">
+      <div>
+        <p class="section-title" id="usage-title">如何使用</p>
+        <p class="section-subtitle" id="usage-hint">输入中文句子并点击下方按钮，即可查看情感分类结果。</p>
+      </div>
+
+      <div class="input-area">
+        <div class="input-header">
+          <p class="field-label" id="input-label">输入文本</p>
+          <button class="mdc-button mdc-button--outlined" id="populate-text">
+      <span class="mdc-button__ripple"></span>
+            <span class="mdc-button__label" id="populate-text-label">填充示例文本</span>
+          </button>
+        </div>
+
+  <label class="mdc-text-field mdc-text-field--filled mdc-text-field--textarea mdc-text-field--no-label">
+    <span class="mdc-text-field__ripple"></span>
+    <span class="mdc-text-field__resizer">
+      <textarea id="input" class="mdc-text-field__input" rows="8" cols="40" aria-label="文本输入"></textarea>
+    </span>
+    <span class="mdc-line-ripple"></span>
+        </label>
+      </div>
+
+  <button id="submit" class="mdc-button mdc-button--raised">
+        <span class="mdc-button__label" id="submit-label">分类</span>
+      </button>
+
+      <p class="field-label" id="result-title">情感分析结果</p>
+      <div id="output" class="result-panel"></div>
+</section>
+  </main>
+<script type="module" src="./script.js"></script>
+</body>
+</html>

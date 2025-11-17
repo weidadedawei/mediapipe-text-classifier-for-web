@@ -1,0 +1,28 @@
+{
+  "name": "mediapipe-text-classifier-for-web",
+  "version": "1.0.0",
+  "description": "MediaPipe Text Classifier Web Application",
+  "scripts": {
+    "build": "node build.js",
+    "clean": "rm -rf dist && mkdir -p dist",
+    "copy": "cp src/index.html dist/index.html && cp src/style.css dist/style.css",
+    "compile": "tsc",
+    "watch": "tsc --watch",
+    "dev": "npm run build && npm run serve",
+    "serve": "npx http-server dist -p 8000 -o",
+    "deploy:cf": "wrangler pages deploy ./dist --project-name=mediapipe-text-classifier-for-web"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "@types/node": "^20.10.0"
+  },
+  "keywords": [
+    "mediapipe",
+    "text-classifier",
+    "bert",
+    "machine-learning"
+  ],
+  "author": "",
+  "license": "Apache-2.0"
+}
+

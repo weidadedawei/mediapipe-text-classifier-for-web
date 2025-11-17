@@ -1,0 +1,114 @@
+#!/bin/bash
+# 部署模型到 Web 应用
+
+set -e
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WEB_DIR="$PROJECT_ROOT/web"
+MODEL_DIR="$SCRIPT_DIR/models"
+SRC_MODEL_DIR="$WEB_DIR/src/models"
+
+echo "========================================="
+echo "部署中文 BERT 模型到 Web 应用"
+echo "========================================="
+echo ""
+
+# 检查 SavedModel
+SAVED_MODEL_PATH="$MODEL_DIR/chinese_bert_model_savedmodel"
+TFJS_OUTPUT_DIR="$MODEL_DIR/chinese_bert_model_js"
+
+if [ ! -d "$SAVED_MODEL_PATH" ]; then
+    echo "❌ 未找到 SavedModel: $SAVED_MODEL_PATH"
+    echo ""
+    echo "解决方案："
+    echo "1. 重新运行训练脚本（会保存 SavedModel）:"
+    echo "   python3 train_bert_tensorflow.py \\"
+    echo "       --dataset datasets/dataset_merged.csv \\"
+    echo "       --output models/chinese_bert_model.tflite"
+    echo ""
+    echo "2. 确保训练脚本已保存 SavedModel（训练时会自动保存）"
+    echo ""
+    exit 1
+fi
+
+echo "✅ 找到 SavedModel: $SAVED_MODEL_PATH"
+echo ""
+
+# 检查 tensorflowjs
+echo "📦 检查 tensorflowjs..."
+if ! python3 -c "import tensorflowjs" 2>/dev/null; then
+    echo "   正在安装 tensorflowjs..."
+    pip install tensorflowjs --quiet
+    echo "   ✅ tensorflowjs 安装完成"
+else
+    echo "   ✅ tensorflowjs 已安装"
+fi
+
+echo ""
+
+# 转换模型
+if [ -d "$TFJS_OUTPUT_DIR" ]; then
+    echo "⚠️  检测到已存在的 TensorFlow.js 模型，将覆盖..."
+    rm -rf "$TFJS_OUTPUT_DIR"
+fi
+
+echo "🔄 转换 SavedModel 为 TensorFlow.js 格式..."
+echo "   （这可能需要几分钟）"
+
+tensorflowjs_converter \
+    --input_format=tf_saved_model \
+    --output_format=tfjs_graph_model \
+    "$SAVED_MODEL_PATH" \
+    "$TFJS_OUTPUT_DIR"
+
+if [ $? -ne 0 ]; then
+    echo "   ❌ 转换失败"
+    exit 1
+fi
+
+echo "   ✅ 转换完成"
+echo ""
+
+# 复制文件到 web/src/models（构建时会自动复制到 dist）
+echo "📁 复制文件到 web/src/models 目录..."
+mkdir -p "$SRC_MODEL_DIR"
+
+# 复制 TensorFlow.js 模型
+echo "   复制 TensorFlow.js 模型..."
+cp -r "$TFJS_OUTPUT_DIR" "$SRC_MODEL_DIR/"
+
+# 复制辅助文件
+echo "   复制辅助文件..."
+cp "$MODEL_DIR/chinese_bert_model_vocab.txt" "$SRC_MODEL_DIR/" 2>/dev/null || echo "   ⚠️  词汇表文件不存在"
+cp "$MODEL_DIR/chinese_bert_model_labels.txt" "$SRC_MODEL_DIR/" 2>/dev/null || echo "   ⚠️  标签文件不存在"
+
+echo "   ✅ 文件复制完成"
+echo ""
+
+# 构建项目
+echo "🔨 构建 Web 应用..."
+cd "$WEB_DIR"
+if [ ! -d "node_modules" ]; then
+    echo "   📦 检测到缺少依赖，正在安装 npm 依赖..."
+    npm install
+fi
+npm run build
+
+echo ""
+echo "========================================="
+echo "✅ 部署完成！"
+echo "========================================="
+echo ""
+echo "文件位置:"
+echo "  - TensorFlow.js 模型: $SRC_MODEL_DIR/chinese_bert_model_js/"
+echo "  - 词汇表: $SRC_MODEL_DIR/chinese_bert_model_vocab.txt"
+echo "  - 标签文件: $SRC_MODEL_DIR/chinese_bert_model_labels.txt"
+echo ""
+echo "注意: 模型文件已复制到 web/src/models/，构建时会自动复制到 web/dist/models/"
+echo ""
+echo "下一步:"
+echo "  1. 启动服务器: (cd web && npm run serve)"
+echo "  2. 访问: http://localhost:8000/?model=chinese_tfjs"
+echo ""
+

@@ -1,0 +1,32 @@
+### Node / Web 前端
+node_modules/
+/web/dist/
+.parcel-cache/
+
+### Python / 训练输出
+__pycache__/
+*.pyc
+.python-version
+.venv/
+/.env
+/.env.*
+training/.venv/
+training/models/
+training/*.log
+training/*.tflite
+
+### 通用构建 & 工具
+/dist/
+*.log
+.DS_Store
+.vercel/
+.idea/
+.vscode/
+*.swp
+*.tmp
+
+### 数据与缓存
+*.cache
+.ipynb_checkpoints/
+training/datasets/*.tmp
+
