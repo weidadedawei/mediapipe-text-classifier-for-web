@@ -104,7 +104,7 @@ const UI_COPY: Record<ModelKey, ModelUICopy> = {
     readyMessage: '✅ 中文模型已准备就绪，可直接输入中文句子进行分析。',
     analyzingMessage: '正在分类...',
     sampleText: CHINESE_SAMPLE,
-    overlayHint: '模型约 390 MB，请在稳定网络环境下等待加载完成。'
+    overlayHint: '模型较大请在稳定网络环境下等待加载完成。'
   },
   english: {
     documentTitle: 'Sentiment Classifier Playground',
