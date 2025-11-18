@@ -89,7 +89,7 @@ const UI_COPY: Record<ModelKey, ModelUICopy> = {
     documentTitle: '中文情感分析 Web 应用',
     heroBadge: '情感 AI 体验站',
     heroTitle: '中文情感分析演示',
-    heroSubtitle: '完全在浏览器端运行的 TensorFlow.js 模型。中文情感分析模型 (TensorFlow.js)：基于 BERT-Base-Chinese 微调，适合中文情感分析与教学演示。建议输入简体中文文本，模型将返回「积极 / 消极 / 中性」的置信度。',
+    heroSubtitle: '完全在浏览器端运行的 TensorFlow.js 模型。中文情感分析模型 (TensorFlow.js)：基于 BERT-Base-Chinese 微调，适合中文情感分析与教学演示。建议输入简体中文文本，模型将返回「积极 / 消极」的置信度。',
     modelSectionTitle: '模型选择',
     modelSectionSubtitle: '点击下方按钮即可在中文 TensorFlow.js 模型与英文 MediaPipe 模型之间切换。',
     modelButtonLabelChinese: '中文模型',
