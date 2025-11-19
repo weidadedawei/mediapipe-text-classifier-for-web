@@ -3,43 +3,55 @@
  * 使用 TensorFlow.js 加载 TFLite 模型并进行推理
  */
 
-// 使用 CDN 导入 TensorFlow.js
-declare const tf: any;
+import * as tf from '@tensorflow/tfjs';
 
 // 标记自定义算子是否已经注册
 let erfcOpRegistered = false;
 
+/**
+ * Registers the 'Erfc' custom operator in TensorFlow.js if it's not already available.
+ * 
+ * The BERT model uses the GELU activation function, which relies on the Erfc (Complementary Error Function) op.
+ * Standard TensorFlow.js builds might not include this op by default, or it might be missing in certain backends.
+ * This function attempts to register a polyfill using `tf.erf` if `tf.erfc` is missing.
+ */
 function ensureCustomErfcOpRegistered(): void {
   if (erfcOpRegistered) {
     return;
   }
-  if (typeof tf === 'undefined' || typeof tf.registerOp !== 'function') {
-    console.warn('TensorFlow.js registerOp 不可用，无法注册 Erfc 自定义算子');
+
+  // Check if tf is available
+  if (typeof tf === 'undefined') {
+    console.warn('TensorFlow.js is not loaded, cannot register Erfc op');
     return;
   }
-  
+
   try {
     tf.registerOp('Erfc', (node: { inputs?: any[] }) => {
       if (!node?.inputs || node.inputs.length === 0) {
-        throw new Error('Erfc 自定义算子需要一个输入张量');
+        throw new Error('Erfc op requires one input tensor');
       }
       const inputTensor = node.inputs[0];
-      
+
       return tf.tidy(() => {
-        if (typeof tf.erfc === 'function') {
-          return tf.erfc(inputTensor);
+        const tfAny = tf as any;
+        // Try to use native erfc if available (hidden in some versions)
+        if (typeof tfAny.erfc === 'function') {
+          return tfAny.erfc(inputTensor);
         }
+
+        // Polyfill using erf: erfc(x) = 1 - erf(x)
         if (typeof tf.erf !== 'function') {
-          throw new Error('当前 TensorFlow.js 版本缺少 erf 运算，无法模拟 Erfc');
+          throw new Error('Current TensorFlow.js version is missing "erf" op, cannot polyfill Erfc');
         }
         const ones = tf.onesLike(inputTensor);
         return tf.sub(ones, tf.erf(inputTensor));
       });
     });
     erfcOpRegistered = true;
-    console.log('🔧 已注册自定义 TensorFlow.js 算子: Erfc');
+    console.log('🔧 Custom TensorFlow.js op registered: Erfc');
   } catch (error) {
-    console.warn('注册 Erfc 自定义算子失败:', error);
+    console.warn('Failed to register Erfc op:', error);
   }
 }
 
@@ -76,16 +88,16 @@ export class BertClassifier {
 
     try {
       console.log('📥 加载 BERT 分类器...');
-      
+
       // 加载词汇表
       await this.loadVocab();
-      
+
       // 加载标签
       await this.loadLabels();
-      
+
       // 加载模型
       await this.loadModel();
-      
+
       this.initialized = true;
       console.log('✅ BERT 分类器初始化完成');
     } catch (error) {
@@ -99,16 +111,16 @@ export class BertClassifier {
    */
   private async loadVocab(): Promise<void> {
     console.log(`📖 加载词汇表: ${this.config.vocabPath}`);
-    
+
     const response = await fetch(this.config.vocabPath);
     const text = await response.text();
     const lines = text.trim().split('\n');
-    
+
     this.vocab.clear();
     lines.forEach((word, index) => {
       this.vocab.set(word.trim(), index);
     });
-    
+
     console.log(`   ✅ 词汇表加载完成 (${this.vocab.size} 个词)`);
   }
 
@@ -117,11 +129,11 @@ export class BertClassifier {
    */
   private async loadLabels(): Promise<void> {
     console.log(`📖 加载标签: ${this.config.labelsPath}`);
-    
+
     const response = await fetch(this.config.labelsPath);
     const text = await response.text();
     this.labels = text.trim().split('\n').filter(line => line.trim() !== '');
-    
+
     console.log(`   ✅ 标签加载完成 (${this.labels.length} 个标签)`);
   }
 
@@ -140,19 +152,19 @@ export class BertClassifier {
    */
   private async loadModel(): Promise<void> {
     console.log(`📥 加载模型: ${this.config.modelPath}`);
-    
+
     try {
       // 检查 TensorFlow.js 是否已加载
       if (typeof tf === 'undefined') {
         throw new Error('TensorFlow.js 未加载，请确保已引入 @tensorflow/tfjs');
       }
-      
+
       ensureCustomErfcOpRegistered();
 
       // 方法 1: 尝试加载 TensorFlow.js 格式的模型（推荐）
       // modelPath 应该直接指向 model.json 文件
       let modelJsonPath = this.config.modelPath;
-      
+
       // 如果路径是 .tflite，尝试转换为 TensorFlow.js 路径
       if (modelJsonPath.endsWith('.tflite')) {
         modelJsonPath = modelJsonPath.replace('.tflite', '_js/model.json');
@@ -165,7 +177,7 @@ export class BertClassifier {
       else if (modelJsonPath.endsWith('/')) {
         modelJsonPath = modelJsonPath + 'model.json';
       }
-      
+
       try {
         console.log(`   尝试加载模型: ${modelJsonPath}`);
         this.model = await tf.loadGraphModel(modelJsonPath);
@@ -206,11 +218,11 @@ export class BertClassifier {
     // 简单的字符级分词（适用于中文）
     // 对于更准确的分词，可以使用更复杂的算法
     const tokens: number[] = [];
-    
+
     // 添加 [CLS] token
     const clsTokenId = this.vocab.get('[CLS]') ?? this.vocab.get('<s>') ?? 101;
     tokens.push(clsTokenId);
-    
+
     // 处理文本
     // BERT 使用 WordPiece 分词，这里简化处理
     // 对于中文，可以按字符分割
@@ -218,20 +230,20 @@ export class BertClassifier {
     for (const char of chars) {
       // 尝试直接匹配字符
       let tokenId = this.vocab.get(char);
-      
+
       // 如果找不到，尝试查找子词
       if (tokenId === undefined) {
         // 简化处理：使用 UNK token
         tokenId = this.vocab.get('[UNK]') ?? this.vocab.get('<unk>') ?? 100;
       }
-      
+
       tokens.push(tokenId);
     }
-    
+
     // 添加 [SEP] token
     const sepTokenId = this.vocab.get('[SEP]') ?? this.vocab.get('</s>') ?? 102;
     tokens.push(sepTokenId);
-    
+
     return tokens;
   }
 
@@ -241,11 +253,11 @@ export class BertClassifier {
   private preprocess(text: string): { inputIds: number[], attentionMask: number[] } {
     // 分词
     const tokens = this.tokenize(text);
-    
+
     // 截断或填充到固定长度
     const inputIds: number[] = [];
     const attentionMask: number[] = [];
-    
+
     for (let i = 0; i < this.maxLength; i++) {
       if (i < tokens.length) {
         inputIds.push(tokens[i]);
@@ -257,7 +269,7 @@ export class BertClassifier {
         attentionMask.push(0);
       }
     }
-    
+
     return { inputIds, attentionMask };
   }
 
@@ -276,14 +288,14 @@ export class BertClassifier {
     try {
       // 预处理
       const { inputIds, attentionMask } = this.preprocess(text);
-      
+
       // 转换为 TensorFlow.js 张量
       const inputIdsTensor = tf.tensor2d([inputIds], [1, this.maxLength], 'int32');
       const attentionMaskTensor = tf.tensor2d([attentionMask], [1, this.maxLength], 'int32');
-      
+
       // 推理
       let predictions: any;
-      
+
       // 根据模型输入格式调用
       if (this.model.inputs.length === 2) {
         // 两个输入：input_ids 和 attention_mask
@@ -292,15 +304,15 @@ export class BertClassifier {
         // 单个输入：input_ids
         predictions = this.model.predict(inputIdsTensor);
       }
-      
+
       // 获取概率分布
       const probabilities = await predictions.data();
-      
+
       // 清理张量
       inputIdsTensor.dispose();
       attentionMaskTensor.dispose();
       predictions.dispose();
-      
+
       // 转换为结果格式
       const results: ClassificationResult[] = [];
       for (let i = 0; i < this.labels.length && i < probabilities.length; i++) {
@@ -309,10 +321,10 @@ export class BertClassifier {
           score: probabilities[i]
         });
       }
-      
+
       // 按分数排序
       results.sort((a, b) => b.score - a.score);
-      
+
       return results;
     } catch (error) {
       console.error('分类失败:', error);

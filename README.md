@@ -16,6 +16,7 @@
 - TensorFlow.js：在浏览器中运行机器学习模型
 - BERT-Base-Chinese：用于中文文本分类的预训练模型
 - Material Design Components：用于 UI 组件
+- esbuild：用于快速打包前端代码和依赖
 
 ## 项目结构
 
@@ -48,8 +49,9 @@ mediapipe-text-classifier-for-web/
    - 使用 `deploy_to_web.sh` 或手动流程将模型转换成 TensorFlow.js 并复制到 `web/src/models/`。
    - 参考 `training/README.md` 获取完整参数说明、FAQ 与性能优化建议。
 2. **运行前端**
-   - 进入 `web/`，执行 `npm install && npm run build`，或使用 `npm run serve` 启动开发服务器。
-   - 访问 `http://localhost:8000` 体验中文情感分析，并在 `web/README.md` 查看使用步骤、浏览器要求与部署提示。
+   - 进入 `web/`，执行 `npm install && npm run build`。
+   - `npm run build` 会使用 esbuild 打包所有依赖到 `dist/bundle.js`。
+   - 使用 `npm run serve` 启动开发服务器，访问 `http://localhost:8000` 体验。
 
 ## 文档索引
 

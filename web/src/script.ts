@@ -1,32 +1,21 @@
-/* Copyright 2023 The MediaPipe Authors.
+/**
+ * MediaPipe Text Classifier Web Application
+ * 
+ * This script handles the UI logic, model switching, and interaction with
+ * both MediaPipe (English) and TensorFlow.js (Chinese) models.
+ */
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License. */
-
-// @ts-ignore - CDN import
-import { MDCTextField } from "https://cdn.skypack.dev/@material/textfield";
-// @ts-ignore - CDN import
+import { MDCTextField } from "@material/textfield";
 import {
   TextClassifier,
   FilesetResolver
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-text@0.10.0";
+} from "@mediapipe/tasks-text";
 import type { ModelConfig, ModelKey } from './config.js';
 import { MODEL_CONFIGS, getCurrentModelConfig, getInitialModelType, setModelType } from './config.js';
 import { BertClassifier } from './bert_classifier.js';
+import * as tf from '@tensorflow/tfjs';
 
-// TensorFlow.js 通过 <script> 标签加载，作为全局变量 tf
-declare const tf: any;
-
-// Type definitions for MediaPipe
+// Type definitions for MediaPipe classification results
 interface TextClassifierResult {
   classifications: Array<{
     categories: Array<{
@@ -208,7 +197,7 @@ function initializeApp() {
       }
     });
   }
-  
+
   // 允许使用回车键触发分类
   if (input) {
     input.addEventListener('keydown', (event) => {
@@ -251,11 +240,11 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
   if (isModelLoading) {
     return;
   }
-  
+
   const targetKey = modelKey ?? getInitialModelType();
   const copy = UI_COPY[targetKey];
   const targetConfig = MODEL_CONFIGS[targetKey];
-  
+
   updateUICopy(targetKey);
   updateModelInfoPanel(targetConfig);
   setActiveModelButton(targetKey);
@@ -267,10 +256,10 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
   if (output) {
     output.innerHTML = "";
   }
-  
+
   setModelType(targetKey);
   currentModelKey = targetKey;
-  
+
   const cachedModel = modelCache[targetKey];
   if (cachedModel) {
     currentModelRuntime = cachedModel.runtime;
@@ -281,7 +270,7 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
       textClassifier = cachedModel.classifier as TextClassifier;
       bertClassifier = null;
     }
-    
+
     if (demosSection) {
       demosSection.classList.remove("invisible");
     }
@@ -289,37 +278,37 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
     hideLoadingOverlay();
     return;
   }
-  
+
   showLoadingOverlay(copy.loadingMessage, copy.overlayHint);
   isModelLoading = true;
-  
+
   try {
     const modelConfig = getCurrentModelConfig();
 
     // 根据模型类型选择加载方式
     const modelType = modelConfig.modelType || 'mediapipe';
     currentModelRuntime = modelType;
-    
+
     if (modelType === 'tensorflow') {
       // 使用 TensorFlow.js 模型
       if (!modelConfig.vocabPath || !modelConfig.labelsPath) {
         throw new Error('TensorFlow.js 模型需要 vocabPath 和 labelsPath 配置');
       }
-      
+
       // 设置全局 tf 对象（如果未设置）
       if (typeof window !== 'undefined') {
         (window as any).tf = tf;
       }
-      
+
       bertClassifier = new BertClassifier({
         modelPath: modelConfig.modelPath,
         vocabPath: modelConfig.vocabPath,
         labelsPath: modelConfig.labelsPath,
         maxLength: modelConfig.maxLength || 128
       });
-      
+
       await bertClassifier.initialize();
-      
+
       modelCache[targetKey] = {
         runtime: 'tensorflow',
         classifier: bertClassifier
@@ -335,7 +324,7 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
         },
         maxResults: 5
       });
-      
+
       modelCache[targetKey] = {
         runtime: 'mediapipe',
         classifier: textClassifier
@@ -346,7 +335,7 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
     if (demosSection) {
       demosSection.classList.remove("invisible");
     }
-    
+
     showInfoBanner(copy.readyMessage, 'success');
   } catch (error) {
     console.error("Failed to initialize TextClassifier:", error);
@@ -364,7 +353,7 @@ const createTextClassifier = async (modelKey?: ModelKey) => {
  */
 async function runClassification(): Promise<void> {
   const copy = UI_COPY[currentModelKey];
-  
+
   if (isModelLoading) {
     showInfoBanner(copy.loadingMessage, 'info');
     return;
@@ -373,7 +362,7 @@ async function runClassification(): Promise<void> {
   if (!input) {
     return;
   }
-  
+
   const textValue = input.value;
   if (textValue.trim() === "") {
     alert(currentModelKey === 'chinese_tfjs'
@@ -381,24 +370,24 @@ async function runClassification(): Promise<void> {
       : "Please enter some text or insert the sample paragraph.");
     return;
   }
-  
+
   if (output) {
     showInfoBanner(copy.analyzingMessage, 'info');
   }
-  
+
   try {
     if (currentModelRuntime === 'tensorflow' && bertClassifier) {
       const results = await bertClassifier.classify(textValue);
       displayTensorFlowResults(results);
       return;
     }
-    
+
     if (currentModelRuntime === 'mediapipe' && textClassifier) {
       const result = textClassifier.classify(textValue);
       displayClassificationResult(result);
       return;
     }
-    
+
     const fallbackMessage = currentModelKey === 'chinese_tfjs'
       ? "模型未加载，请稍候或尝试重新切换模型。"
       : "Model is not ready yet. Please wait or switch the model again.";
@@ -424,26 +413,26 @@ if (document.readyState === "loading") {
 // 渲染 MediaPipe TextClassifier 返回的分类结果
 function displayClassificationResult(result: TextClassifierResult) {
   if (!output) return;
-  
+
   if (!result.classifications[0] || result.classifications[0].categories.length === 0) {
     const emptyMessage = currentModelKey === 'chinese_tfjs' ? "结果为空" : "No result";
     output.innerText = emptyMessage;
     return;
   }
-  
-    output.innerHTML = "";
-    
-    const inputText = input?.value || "";
-    const hasChinese = /[\u4e00-\u9fa5]/.test(inputText);
+
+  output.innerHTML = "";
+
+  const inputText = input?.value || "";
+  const hasChinese = /[\u4e00-\u9fa5]/.test(inputText);
   const copy = UI_COPY[currentModelKey];
-    
+
   if (currentModelKey === 'english' && hasChinese && copy.mismatchWarning) {
-      const warningDiv = document.createElement("div");
+    const warningDiv = document.createElement("div");
     warningDiv.className = "info-banner warning";
     warningDiv.innerText = copy.mismatchWarning;
-      output.appendChild(warningDiv);
+    output.appendChild(warningDiv);
   }
-  
+
   for (const category of result.classifications[0].categories) {
     const categoryDiv = document.createElement("div");
     const displayLabel = currentModelKey === 'english'
@@ -452,7 +441,7 @@ function displayClassificationResult(result: TextClassifierResult) {
     const percentage = (category.score * 100).toFixed(1);
     categoryDiv.innerText = `${displayLabel}: ${percentage}%`;
     categoryDiv.style.marginBottom = "5px";
-    
+
     if (category.score > 0.5) {
       categoryDiv.style.color = "#12b5cb";
       categoryDiv.style.fontWeight = "bold";
@@ -462,17 +451,17 @@ function displayClassificationResult(result: TextClassifierResult) {
 }
 
 // 渲染 TensorFlow.js 自定义 BERT 模型的结果
-function displayTensorFlowResults(results: Array<{label: string, score: number}>) {
+function displayTensorFlowResults(results: Array<{ label: string, score: number }>) {
   if (!output) return;
-  
+
   if (results.length === 0) {
     const emptyMessage = currentModelKey === 'chinese_tfjs' ? "结果为空" : "No result";
     output.innerText = emptyMessage;
     return;
   }
-  
+
   output.innerHTML = "";
-  
+
   for (const result of results) {
     const categoryDiv = document.createElement("div");
     const percentage = (result.score * 100).toFixed(1);
@@ -526,11 +515,11 @@ function updateUICopy(modelKey: ModelKey): void {
   resultTitle && (resultTitle.innerText = copy.resultTitle);
   populateTextLabel && (populateTextLabel.innerText = copy.fillSample);
   submitLabel && (submitLabel.innerText = copy.analyzeButton);
-  
+
   if (loadingOverlayHint) {
     loadingOverlayHint.innerText = copy.overlayHint || '';
   }
-  
+
   if (modelSwitcher) {
     const chineseButtonLabel = modelSwitcher.querySelector<HTMLSpanElement>('button[data-model-key="chinese_tfjs"] .model-name');
     const englishButtonLabel = modelSwitcher.querySelector<HTMLSpanElement>('button[data-model-key="english"] .model-name');

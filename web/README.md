@@ -14,8 +14,8 @@
 ```
 web/
 ├── src/            # TypeScript、样式、HTML、模型文件
-├── dist/           # 构建输出
-├── build.js        # 自定义构建脚本
+├── dist/           # 构建输出（包含 bundle.js）
+├── build.js        # 自定义构建脚本（使用 esbuild）
 ├── package.json    # 前端依赖与 npm scripts
 └── tsconfig.json
 ```
@@ -33,9 +33,13 @@ Node.js 18+ 测试通过。若使用 pnpm / yarn，可自行映射脚本。
 
 | 命令 | 作用 |
 |------|------|
-| `npm run build` | 使用 `build.js` 生成产物到 `dist/` |
+| `npm run build` | 使用 `esbuild` 打包 TypeScript 到 `dist/bundle.js`，并复制静态资源 |
 | `npm run serve` | 启动开发服务器（默认 8000 端口） |
 | `npm run clean` | 清空 `dist/`（如在 `package.json` 中定义） |
+
+## 构建说明
+
+本项目使用 `esbuild` 进行快速打包，不再依赖 CDN。所有依赖（TensorFlow.js, MediaPipe, Material Components）均打包在 `dist/bundle.js` 中。
 
 运行 `npm run serve` 后访问 `http://localhost:8000`。
 

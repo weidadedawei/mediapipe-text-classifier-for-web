@@ -5,12 +5,12 @@
  * 功能：
  * 1. 清理 dist 目录
  * 2. 复制 HTML、CSS 和 models 文件
- * 3. 编译 TypeScript 文件
+ * 3. 使用 esbuild 打包 TypeScript 文件
  */
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const esbuild = require('esbuild');
 
 const SRC_DIR = path.join(__dirname, 'src');
 const DIST_DIR = path.join(__dirname, 'dist');
@@ -73,25 +73,33 @@ function copyRecursiveSync(src, dest) {
   }
 }
 
-// 编译 TypeScript
-function compileTypeScript() {
-  console.log('🔨 编译 TypeScript...');
+// 使用 esbuild 打包 TypeScript
+async function bundle() {
+  console.log('📦 打包 TypeScript (esbuild)...');
   try {
-    execSync('npx tsc', { stdio: 'inherit' });
-    console.log('  ✓ script.ts -> script.js');
+    await esbuild.build({
+      entryPoints: [path.join(SRC_DIR, 'script.ts')],
+      bundle: true,
+      outfile: path.join(DIST_DIR, 'bundle.js'),
+      minify: true,
+      sourcemap: true,
+      target: ['es2020'],
+      format: 'esm',
+    });
+    console.log('  ✓ script.ts -> bundle.js');
   } catch (error) {
-    console.error('❌ TypeScript 编译失败');
+    console.error('❌ 打包失败:', error);
     process.exit(1);
   }
 }
 
 // 主函数
-function build() {
+async function build() {
   console.log('🚀 开始构建...\n');
   
   clean();
   copyFiles();
-  compileTypeScript();
+  await bundle();
   
   console.log('\n✅ 构建完成！');
   console.log(`📁 输出目录: ${DIST_DIR}`);

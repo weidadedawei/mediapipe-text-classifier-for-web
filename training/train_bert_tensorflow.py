@@ -1,8 +1,17 @@
 #!/usr/bin/env python3
 """
-使用纯 TensorFlow 和 Hugging Face Transformers 训练中文情感分析 BERT 模型
+TensorFlow BERT Chinese Sentiment Analysis Training Script
 
-使用方法：
+This script fine-tunes a pre-trained BERT model (e.g., bert-base-chinese) for sentiment classification.
+It uses TensorFlow and Hugging Face Transformers.
+
+Features:
+- Loads and validates CSV datasets.
+- Fine-tunes BERT for binary classification (positive/negative).
+- Exports models to TFLite (for mobile/web) and SavedModel (for TF.js).
+- Generates training logs and evaluation reports.
+
+Usage:
     python3 train_bert_tensorflow.py --dataset dataset.csv --output models/chinese_bert_model.tflite
 """
 
@@ -24,9 +33,9 @@ try:
         BertConfig
     )
 except ImportError as e:
-    print("❌ 错误: 缺少必要的依赖")
-    print(f"   详细错误: {str(e)}")
-    print("   请运行: pip install tensorflow transformers pandas scikit-learn numpy")
+    print("❌ Error: Missing required dependencies.")
+    print(f"   Details: {str(e)}")
+    print("   Please run: pip install tensorflow transformers pandas scikit-learn numpy")
     sys.exit(1)
 
 
@@ -38,11 +47,22 @@ def load_dataset(dataset_path):
     
     # 检查必要的列
     if 'text' not in df.columns or 'label' not in df.columns:
-        raise ValueError("数据集必须包含 'text' 和 'label' 列")
+        raise ValueError(f"数据集必须包含 'text' 和 'label' 列。当前列: {list(df.columns)}")
     
+    # 检查是否为空
+    if len(df) == 0:
+        raise ValueError("数据集为空")
+
     # 清理数据
+    original_len = len(df)
     df = df.dropna(subset=['text', 'label'])
-    df = df[df['text'].str.strip() != '']
+    df = df[df['text'].astype(str).str.strip() != '']
+    
+    if len(df) == 0:
+        raise ValueError("清理后的数据集为空（所有行都包含空值或空文本）")
+        
+    if len(df) < original_len:
+        print(f"   ⚠️  已移除 {original_len - len(df)} 条无效数据（空值或空文本）")
     
     # 获取标签映射
     unique_labels = sorted(df['label'].unique())
@@ -93,16 +113,19 @@ def build_model(num_labels, model_name='uer/roberta-small-wwm-chinese-cluecorpus
     """构建 BERT 分类模型"""
     print(f"\n⚙️  构建模型: {model_name}")
     
-    # 加载预训练的 BERT 模型
-    config = BertConfig.from_pretrained(
-        model_name,
-        num_labels=num_labels,
-        hidden_act="gelu"  # 强制使用兼容的 GELU 版本
-    )
-    model = TFBertForSequenceClassification.from_pretrained(
-        model_name,
-        config=config
-    )
+    try:
+        # 加载预训练的 BERT 模型
+        config = BertConfig.from_pretrained(
+            model_name,
+            num_labels=num_labels,
+            hidden_act="gelu"  # 强制使用兼容的 GELU 版本
+        )
+        model = TFBertForSequenceClassification.from_pretrained(
+            model_name,
+            config=config
+        )
+    except Exception as e:
+        raise RuntimeError(f"无法加载预训练模型 '{model_name}': {str(e)}\n请检查网络连接或模型名称是否正确。")
     
     print(f"   ✅ 模型构建完成")
     print(f"   参数量: {model.count_params():,}")

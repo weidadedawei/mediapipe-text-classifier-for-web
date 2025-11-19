@@ -14,14 +14,13 @@ limitations under the License. -->
 
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MediaPipe 文本分类器</title>
   <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
-  <script src="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.js"></script>
-  <!-- TensorFlow.js（默认已包含 CPU / WebGL 后端，无需额外引入 tfjs-backend-* 脚本） -->
-  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.18.0/dist/tf.min.js"></script>
+  <link href="https://unpkg.com/material-components-web@latest/dist/material-components-web.min.css" rel="stylesheet">
   <style>
     :root {
       font-family: "Inter", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
@@ -211,7 +210,7 @@ limitations under the License. -->
       background: #f9fafb;
       border: 1px dashed #d1d5db;
     }
-    
+
     .info-banner {
       border-radius: 12px;
       padding: 12px 14px;
@@ -219,17 +218,17 @@ limitations under the License. -->
       font-size: 14px;
       line-height: 1.5;
     }
-    
+
     .info-banner.info {
       background: #e0f2fe;
       color: #0c4a6e;
     }
-    
+
     .info-banner.success {
       background: #ecfdf5;
       color: #065f46;
     }
-    
+
     .info-banner.warning {
       background: #fff7ed;
       color: #9a3412;
@@ -303,6 +302,7 @@ limitations under the License. -->
     }
   </style>
 </head>
+
 <body>
   <main class="app">
     <header class="hero card">
@@ -328,7 +328,7 @@ limitations under the License. -->
           </button>
         </div>
       </div>
-     
+
     </section>
 
     <section id="demos" class="card invisible">
@@ -341,27 +341,27 @@ limitations under the License. -->
         <div class="input-header">
           <p class="field-label" id="input-label">输入文本</p>
           <button class="mdc-button mdc-button--outlined" id="populate-text">
-      <span class="mdc-button__ripple"></span>
+            <span class="mdc-button__ripple"></span>
             <span class="mdc-button__label" id="populate-text-label">填充示例文本</span>
           </button>
         </div>
 
-  <label class="mdc-text-field mdc-text-field--filled mdc-text-field--textarea mdc-text-field--no-label">
-    <span class="mdc-text-field__ripple"></span>
-    <span class="mdc-text-field__resizer">
-      <textarea id="input" class="mdc-text-field__input" rows="8" cols="40" aria-label="文本输入"></textarea>
-    </span>
-    <span class="mdc-line-ripple"></span>
+        <label class="mdc-text-field mdc-text-field--filled mdc-text-field--textarea mdc-text-field--no-label">
+          <span class="mdc-text-field__ripple"></span>
+          <span class="mdc-text-field__resizer">
+            <textarea id="input" class="mdc-text-field__input" rows="8" cols="40" aria-label="文本输入"></textarea>
+          </span>
+          <span class="mdc-line-ripple"></span>
         </label>
       </div>
 
-  <button id="submit" class="mdc-button mdc-button--raised">
+      <button id="submit" class="mdc-button mdc-button--raised">
         <span class="mdc-button__label" id="submit-label">分类</span>
       </button>
 
       <p class="field-label" id="result-title">情感分析结果</p>
       <div id="output" class="result-panel"></div>
-</section>
+    </section>
   </main>
   <div id="loading-overlay" class="loading-overlay">
     <div class="loading-card">
@@ -370,6 +370,7 @@ limitations under the License. -->
       <small style="color:#94a3b8;">大约需要 20~40 秒，取决于网络速度</small>
     </div>
   </div>
-<script type="module" src="./script.js"></script>
+  <script type="module" src="./bundle.js"></script>
 </body>
+
 </html>
